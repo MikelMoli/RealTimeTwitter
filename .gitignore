@@ -1,0 +1,4 @@
+keys.txt
+settings.py
+venv/*
+__pycache__/*
