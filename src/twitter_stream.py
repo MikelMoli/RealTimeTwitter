@@ -14,8 +14,22 @@ class TwitterStream(tweepy.StreamingClient):
         self.client_socket = application_socket
 
     def on_tweet(self, tweet):
-        print(tweet.id)
-        self.client_socket.send(str(tweet).encode('utf-8').strip())
+        print(type(tweet))
+        data = {
+            "id": tweet.id,
+            "user_id": tweet.author_id, 
+            "text": tweet.text, 
+            "context_annotations": tweet.context_annotations, 
+            "created_ts": tweet.created_at,
+            "geolocation": tweet.geo,
+            "in_reply_to_user_id": tweet.in_reply_to_user_id,
+            "lang": tweet.lang,
+            "non_public_metrics": tweet.non_public_metrics,
+            "organic_metrics": tweet.organic_metrics,
+            "possibly_sensitive": tweet.possibly_sensitive,
+            "promoted_metrics": tweet.promoted_metrics
+            }
+        self.client_socket.send((str(data)).encode('utf-8').strip())
         self.client_socket.send(str("\n").encode('utf-8'))
 
 
@@ -32,5 +46,11 @@ if __name__=='__main__':
 
     application_socket, address = socket.accept()
     application_socket.setblocking(False)
+    print("Client connected!")
     streaming_client = TwitterStream(application_socket)
-    streaming_client.sample()
+    streaming_client.add_rules(tweepy.StreamRule('"Pedro Sanchez" or VOX lang:es')) # This creates a filtered stream
+    streaming_client.filter() # This creates a filtered stream
+
+
+    # IF STREAM IS NOT WORKING, DELETE checkpoint AND output_path FOLDERS AND RERUN BOTH SCRIPTS
+    

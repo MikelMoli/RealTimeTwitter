@@ -17,22 +17,20 @@ spark = SparkSession \
 
 tweet_stream = spark.readStream \
                     .format('socket') \
-                    .option('host', '127.0.0.1') \
+                    .option('host', settings.SOCKET['HOST']) \
                     .option('port', settings.SOCKET['PORT']) \
                     .load()
 
 tweets = tweet_stream.select(
-        explode(split(tweet_stream.value, settings.ANALYSIS['TWEET_EOL'])).alias('message')) \
-        .withColumn('message', regexp_replace('message', r'http\S+', '')) \
-        .withColumn('message', regexp_replace('message', '@\w+', '')) \
-        .withColumn('message', regexp_replace('message', '#', '')) \
-        .withColumn('message', regexp_replace('message', 'RT', '')) \
-        .withColumn('message', regexp_replace('message', ':', ''))
+        explode(split(tweet_stream.value, settings.ANALYSIS['TWEET_EOL'])).alias('message'))
 
 
 query = tweets \
         .writeStream \
-        .format("console") \
+        .format("csv") \
+        .option("checkpointLocation", "checkpoint/") \
+        .option("path", "output_path/") \
+        .outputMode("append") \
         .start()
                 
 query.awaitTermination()

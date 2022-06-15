@@ -2,3 +2,5 @@ keys.txt
 settings.py
 venv/*
 __pycache__/*
+checkpoint/*
+output_path/*
