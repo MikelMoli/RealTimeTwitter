@@ -14,21 +14,21 @@ class TwitterStream(tweepy.StreamingClient):
         self.client_socket = application_socket
 
     def on_tweet(self, tweet):
-        print(type(tweet))
+        
+        
         data = {
-            "id": tweet.id,
-            "user_id": tweet.author_id, 
-            "text": tweet.text, 
-            "context_annotations": tweet.context_annotations, 
-            "created_ts": tweet.created_at,
-            "geolocation": tweet.geo,
-            "in_reply_to_user_id": tweet.in_reply_to_user_id,
-            "lang": tweet.lang,
-            "non_public_metrics": tweet.non_public_metrics,
-            "organic_metrics": tweet.organic_metrics,
-            "possibly_sensitive": tweet.possibly_sensitive,
-            "promoted_metrics": tweet.promoted_metrics
+                "id": tweet.id,
+                "author_id": tweet.author_id, 
+                "text": tweet.text
             }
+
+        if tweet.in_reply_to_user_id is not None:
+            data['in_reply_to_user_id'] = tweet.in_reply_to_user_id
+        else:
+            data['in_reply_to_user_id'] = 'null'
+       
+        print(data)
+
         self.client_socket.send((str(data)).encode('utf-8').strip())
         self.client_socket.send(str("\n").encode('utf-8'))
 
@@ -48,8 +48,11 @@ if __name__=='__main__':
     application_socket.setblocking(False)
     print("Client connected!")
     streaming_client = TwitterStream(application_socket)
-    streaming_client.add_rules(tweepy.StreamRule('"Pedro Sanchez" or VOX lang:es')) # This creates a filtered stream
-    streaming_client.filter() # This creates a filtered stream
+    streaming_client.add_rules(tweepy.StreamRule('(luz or precio or electricidad or factura)')) # This creates a filtered stream
+    streaming_client.add_rules(tweepy.StreamRule('lang:es'))
+    streaming_client.add_rules(tweepy.StreamRule('-is:retweet'))
+    # streaming_client.filter(tweet_fields=["referenced_tweets", "author_id", "created_at"] ) # This creates a filtered stream
+    streaming_client.filter(tweet_fields=["id", "author_id", "text"] ) # This creates a filtered stream
 
 
     # IF STREAM IS NOT WORKING, DELETE checkpoint AND output_path FOLDERS AND RERUN BOTH SCRIPTS
