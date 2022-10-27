@@ -34,5 +34,11 @@ If all fields of streamed data appears as null, it can be because there is somet
     In the end of the file:
 
         export PYSPARK_PYTHON=./venv/bin/python
-
+        export FLASK_APP=model/app.py
+    
     https://stackoverflow.com/questions/9554087/setting-an-environment-variable-in-virtualenv 
+
+
+Running flask:
+
+    flask run --host=0.0.0.0

@@ -6,3 +6,5 @@ checkpoint/*
 output_path/*
 execute
 notebooks/*
+src/__pycache__
+
