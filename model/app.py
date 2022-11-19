@@ -21,7 +21,6 @@ def predict():
     req = request.get_data()
     req = json.loads(req)
     data = req['data']
-    # create the response as a dict 
     response = model(data)[0]
     return response
 

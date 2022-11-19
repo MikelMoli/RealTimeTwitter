@@ -1,0 +1,5 @@
+get_sentiment_count: |-2
+  SELECT label, COUNT(1) from sentiment_tweets st group by label;
+
+get_label_and_score_data: |-2
+  SELECT label, score from sentiment_tweets st;

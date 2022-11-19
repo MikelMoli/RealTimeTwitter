@@ -1,10 +1,19 @@
 import sys
-import os
+import socket
+
 sys.path.append('./')
 sys.path.append('./src')
 
 import findspark
 findspark.init()
+import traceback
+from settings import DATABASE_CONNECTION
+import psycopg2
+
+import requests
+import json
+from json.decoder import JSONDecodeError
+import re
 
 from transformers import pipeline
 from pyspark.sql import SparkSession
@@ -15,7 +24,7 @@ import settings
 
 class StreamConsumer:
 
-    def __init__(self):
+    def __init__(self, mode='sequential'):
         self.model_endpoint = 'http://localhost:5000/predict'
         self.tweet_schema = StructType([ 
                                     StructField("id", StringType(), True),
@@ -23,10 +32,7 @@ class StreamConsumer:
                                     StructField("text", StringType(), True),
                                     StructField("in_reply_to_user_id", StringType(), True)
                                     ])
-        # self.analyzer_controller = AnalyzerController()
-        # self.sentiment_analyzer = create_analyzer(task="sentiment", lang="es")
-        # self.classifier = pipeline("sentiment-analysis", model='pysentimiento/robertuito-sentiment-analysis')
-        # classifier = pipeline("sentiment-analysis", model='robertuito-sentiment-analysis') --> pide token
+        self.mode = mode
 
     def preprocess_tweets(self, stream):
         tweets = stream.withColumn('message', F.from_json(stream.value, self.tweet_schema)).select('message.*')
@@ -57,7 +63,7 @@ class StreamConsumer:
                      .select(F.col("text"), F.col("sentiment.*"))
         return words
 
-    def run(self):
+    def parallel_execution(self):
         spark = SparkSession \
                     .builder \
                     .appName("TwitterStream") \
@@ -90,6 +96,53 @@ class StreamConsumer:
 
         query.awaitTermination()
 
+    def sequential_execution(self):
+        client_socket = socket.socket()
+        client_socket.connect((settings.SOCKET['HOST'], settings.SOCKET['PORT']))
+        counter = 0
+        while True:
+            try:
+                data = client_socket.recv(1024).decode('utf-8')
+                
+                print(f'[RECEIVED DATA] \n "{data}"')
+                data = json.loads(data)
+                
+                data = data['text']
+                data = re.sub('@\w+', '', data)
+                msg = {'data': data}
+                response = requests.post(self.model_endpoint, json=msg)
+
+
+                sentiment_dict = json.loads(response.text)
+                sentiment_dict['tweet'] = data
+
+                connector = psycopg2.connect(host=DATABASE_CONNECTION['host'],
+                            dbname=DATABASE_CONNECTION['dbname'],
+                            user=DATABASE_CONNECTION['user'],
+                            password=DATABASE_CONNECTION['password']
+                            )
+                with connector.cursor() as cur:
+                    try:
+                        
+                        cur.execute("""INSERT INTO sentiment_tweets(tweet,label,score) VALUES (%(tweet)s, %(label)s, %(score)s)""", sentiment_dict)
+                        connector.commit()
+                    except psycopg2.DatabaseError as insert_error:
+                        print('--------------- EXCEPTION START [SCRAP PAGE COMMENT]: ---------------------')
+                        lines = traceback.format_exception(type(insert_error), insert_error, insert_error.__traceback__)
+                        print(''.join(lines))
+                        print('--------------- EXCEPTION END: ---------------------')
+                        pass
+                    finally:
+                        connector.close()
+            except JSONDecodeError as json_error:
+                print('Error handling message.')
+                continue
+
 if __name__ == '__main__':
-    consumer = StreamConsumer()
-    consumer.run()
+    consumer = StreamConsumer(mode='sequential')
+    if consumer.mode == 'parallel':
+        consumer.parallel_execution()
+
+    elif consumer.mode == 'sequential':
+        consumer.sequential_execution()
+
